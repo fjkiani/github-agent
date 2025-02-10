@@ -6,4 +6,4 @@ dockerfilePath = "Dockerfile"
 startCommand = "uvicorn github_agent_endpoint:app --host 0.0.0.0 --port $PORT"
 healthcheckPath = "/health"
 healthcheckTimeout = 300
-restartPolicyType = "on-failure" 
+restartPolicyType = "always" 
