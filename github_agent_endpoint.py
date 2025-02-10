@@ -213,7 +213,20 @@ async def api_health():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    try:
+        # Basic service check
+        return {
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "service": "pydantic-github-agent",
+            "version": "1.0.0"
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "error": str(e),
+            "timestamp": datetime.now().isoformat()
+        }
 
 if __name__ == "__main__":
     import uvicorn
