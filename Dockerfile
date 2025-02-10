@@ -25,5 +25,5 @@ ENV PORT=8000
 HEALTHCHECK --interval=15s --timeout=10s --start-period=45s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-# Use PORT environment variable
-CMD ["uvicorn", "github_agent_endpoint:app", "--host", "0.0.0.0", "--port", "8000"]
+# Use simple command with logging
+CMD uvicorn github_agent_endpoint:app --host 0.0.0.0 --port ${PORT:-8000} --log-level debug

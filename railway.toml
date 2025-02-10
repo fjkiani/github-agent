@@ -3,7 +3,6 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "python github_agent_endpoint.py"
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "always"

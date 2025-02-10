@@ -12,6 +12,7 @@ import os
 from datetime import datetime
 import time
 import asyncio
+import logging
 
 from pydantic_ai.messages import (
     ModelRequest,
@@ -50,6 +51,14 @@ app.add_middleware(
 
 # Initialize Supabase client
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Add logging to startup
+logger.info(f"Starting application with PORT: {os.getenv('PORT', '8000')}")
+logger.info(f"SUPABASE_URL: {SUPABASE_URL[:20]}...")
 
 # Request/Response Models
 class AgentRequest(BaseModel):
@@ -249,6 +258,7 @@ async def api_health():
 
 @app.get("/health")
 async def health_check():
+    logger.info("Health check called")
     return {"status": "healthy"}
 
 if __name__ == "__main__":
