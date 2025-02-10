@@ -15,8 +15,8 @@ RUN pip install --no-cache-dir "numpy>=1.22.5,<2.0.0" && \
 # Copy the rest of the application
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8001
+# Default port (will be overridden by Railway's PORT)
+ENV PORT=8000
 
-# Use PORT environment variable from Railway
-CMD uvicorn github_agent_endpoint:app --host 0.0.0.0 --port ${PORT:-8000}
+# Use PORT environment variable
+CMD ["python", "github_agent_endpoint.py"]
