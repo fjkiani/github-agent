@@ -20,14 +20,30 @@ COPY . .
 
 # Default port (will be overridden by Railway's PORT)
 ENV PORT=8000
+ENV PYTHONUNBUFFERED=1
 
 # Add healthcheck with much longer start period for Railway
-HEALTHCHECK --interval=15s --timeout=10s --start-period=90s --retries=10 \
-    CMD curl -f http://localhost:8000/health || exit 1
+HEALTHCHECK --interval=30s --timeout=30s --start-period=180s --retries=5 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
-# Create a startup script
+# Create a startup script with detailed environment debugging
 RUN echo '#!/bin/bash\n\
 PORT="${PORT:-8000}"\n\
+echo "[$(date)] ========== Starting server initialization =========="\n\
+echo "[$(date)] Directory contents:"\n\
+ls -la\n\
+echo "[$(date)] ========== Environment variables =========="\n\
+echo "PORT=$PORT"\n\
+echo "OPENAI_API_KEY length: ${#OPENAI_API_KEY}"\n\
+echo "OPENAI_API_KEY starts with: ${OPENAI_API_KEY:0:10}..."\n\
+echo "SUPABASE_URL=$SUPABASE_URL"\n\
+echo "SUPABASE_SERVICE_KEY length: ${#SUPABASE_SERVICE_KEY}"\n\
+echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"\n\
+echo "BEARER_TOKEN length: ${#BEARER_TOKEN}"\n\
+echo "[$(date)] ========== Python environment =========="\n\
+python --version\n\
+pip list\n\
+echo "[$(date)] ========== Starting server =========="\n\
 echo "Starting server on port: $PORT"\n\
 exec uvicorn github_agent_endpoint:app --host 0.0.0.0 --port "$PORT" --log-level debug --timeout-keep-alive 75' > /app/start.sh && \
     chmod +x /app/start.sh
