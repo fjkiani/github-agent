@@ -217,21 +217,11 @@ pip install -r requirements.txt
 python cli.py
 ```
 
-## How to Use
-
-1. Start with a repository URL:
-```bash
-> describe https://github.com/username/repo
-```
-
-2. Ask follow-up questions naturally:
-```bash
-> what's in the src folder?
-> show me the readme
-> explain the main file
-```
-
-The agent maintains context between questions, allowing for natural conversation flow while exploring repositories.
+## Features
+- Repository exploration
+- File content viewing
+- Directory structure analysis
+- Context-aware conversations
 
 ## API Endpoint Implementation
 
