@@ -21,9 +21,9 @@ COPY . .
 # Default port (will be overridden by Railway's PORT)
 ENV PORT=8000
 
-# Add healthcheck
+# Add healthcheck with more specific settings
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Use PORT environment variable
-CMD ["python", "github_agent_endpoint.py"]
+CMD ["uvicorn", "github_agent_endpoint:app", "--host", "0.0.0.0", "--port", "8000"]
