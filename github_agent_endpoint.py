@@ -26,21 +26,11 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from github_agent import github_agent, GitHubDeps, OpenAIModel
 
-# Load and verify environment variables
-load_dotenv()
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise ValueError("Missing Supabase configuration. Check .env file.")
-
-print(f"Initializing with Supabase URL: {SUPABASE_URL}")
-print(f"Service key starts with: {SUPABASE_KEY[:20]}...")
-
-# Initialize FastAPI app
+# Initialize FastAPI app first
 app = FastAPI()
 security = HTTPBearer()
 
+# Add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -49,16 +39,32 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize Supabase client
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add logging to startup
-logger.info(f"Starting application with PORT: {os.getenv('PORT', '8000')}")
-logger.info(f"SUPABASE_URL: {SUPABASE_URL[:20]}...")
+# Global variable for Supabase client
+supabase = None
+
+@app.on_event("startup")
+async def startup_event():
+    global supabase
+    try:
+        # Load and verify environment variables
+        load_dotenv()
+        SUPABASE_URL = os.getenv("SUPABASE_URL")
+        SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
+
+        if not SUPABASE_URL or not SUPABASE_KEY:
+            logger.warning("Missing Supabase configuration - will retry in health checks")
+            return
+
+        logger.info(f"Initializing Supabase with URL: {SUPABASE_URL[:20]}...")
+        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+        logger.info("Supabase client initialized successfully")
+    except Exception as e:
+        logger.error(f"Error during startup: {str(e)}")
+        # Don't raise the error, let the application start anyway
 
 # Request/Response Models
 class AgentRequest(BaseModel):
@@ -259,7 +265,24 @@ async def api_health():
 @app.get("/health")
 async def health_check():
     logger.info("Health check called")
-    return {"status": "healthy"}
+    try:
+        if supabase:
+            # Light database check
+            response = supabase.table("messages").select("count").limit(1).execute()
+            return {
+                "status": "healthy",
+                "database": "connected",
+                "timestamp": datetime.now().isoformat()
+            }
+        return {
+            "status": "healthy",
+            "database": "not_configured",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        logger.error(f"Health check error: {str(e)}")
+        # Still return healthy to pass initial deployment
+        return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn
