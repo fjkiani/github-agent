@@ -10,10 +10,13 @@ from typing import Dict, Any
 
 load_dotenv()
 
-# Initialize model based on available API keys
-if os.getenv('OPENAI_API_KEY'):  # Try OpenAI first
+def get_model():
+    """Get the OpenAI model with proper error handling."""
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise ValueError("No OpenAI API key found in environment variables. Please set OPENAI_API_KEY.")
+    
     print("\nUsing OpenAI API")
-    api_key = os.getenv('OPENAI_API_KEY')
     print(f"- API Key starts with: {api_key[:8]}...")
     print(f"- API Key length: {len(api_key)}")
     
@@ -27,13 +30,45 @@ if os.getenv('OPENAI_API_KEY'):  # Try OpenAI first
     print("\nVerifying OpenAI configuration:")
     print(f"- Base URL: {model.client.base_url}")
     print(f"- Headers: {model.client.headers if hasattr(model.client, 'headers') else 'No headers'}")
-else:
-    raise ValueError("No OpenAI API key found. Set OPENAI_API_KEY in your .env file")
+    
+    return model
 
-# Test the model configuration
-print("\nTesting model configuration:")
-print(f"- Model base URL: {model.client.base_url}")
-print(f"- Model name: gpt-3.5-turbo")
+# Initialize model lazily
+model = None
+
+def initialize_agent():
+    """Initialize the agent with the model."""
+    global model, github_agent
+    if model is None:
+        model = get_model()
+        # Test the model configuration
+        print("\nTesting model configuration:")
+        print(f"- Model base URL: {model.client.base_url}")
+        print(f"- Model name: gpt-3.5-turbo")
+        
+        # Simplified system prompt
+        system_prompt = """You are a GitHub repository assistant. Use these tools:
+        1. get_repo_info - Get repository information
+        2. get_repo_structure - Get directory structure
+        3. get_file_content - Read files
+        4. get_directory_contents - List directory contents
+
+        If a tool returns an error, do not retry the same tool multiple times.
+        Instead, acknowledge the error and offer alternative ways to help.
+
+        Always start responses with [Using https://github.com/...] and list which tools you're using.
+
+        Example:
+        [Using https://github.com/example/repo]
+        Tools used: get_repo_info
+        Repository details here..."""
+        
+        # Basic agent configuration
+        github_agent = Agent(
+            model,
+            system_prompt=system_prompt,
+            deps_type=GitHubDeps
+        )
 
 # Simplified system prompt
 system_prompt = """You are a GitHub repository assistant. Use these tools:
@@ -52,12 +87,8 @@ Example:
 Tools used: get_repo_info
 Repository details here..."""
 
-# Basic agent configuration
-github_agent = Agent(
-    model,
-    system_prompt=system_prompt,
-    deps_type=GitHubDeps
-)
+# Initialize empty agent (will be populated on first use)
+github_agent = None
 
 # Cache for GitHub API responses and errors
 repo_cache: Dict[str, Any] = {}

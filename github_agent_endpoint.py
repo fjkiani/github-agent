@@ -22,7 +22,7 @@ from pydantic_ai.messages import (
 )
 
 from github_deps import GitHubDeps
-from github_agent import github_agent
+from github_agent import github_agent, initialize_agent
 from pydantic_ai.models.openai import OpenAIModel
 
 # Add parent directory to Python path
@@ -127,6 +127,12 @@ async def github_agent_endpoint(request: AgentRequest):
         print(f"Processing request at {datetime.now().isoformat()}")
         print(f"Query: {request.query}")
         print(f"Session ID: {request.session_id}")
+        
+        # Initialize agent if not already initialized
+        if github_agent is None:
+            print("\nInitializing agent...")
+            initialize_agent()
+            print("Agent initialization complete")
         
         # Fetch conversation history
         print("\nFetching conversation history...")
