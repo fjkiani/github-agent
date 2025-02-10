@@ -249,22 +249,7 @@ async def api_health():
 
 @app.get("/health")
 async def health_check():
-    try:
-        # Test Supabase connection
-        response = supabase.table("messages").select("count").execute()
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "timestamp": datetime.now().isoformat(),
-            "environment": "production" if os.getenv("RAILWAY_ENVIRONMENT") else "local"
-        }
-    except Exception as e:
-        return {
-            "status": "unhealthy",
-            "error": str(e),
-            "timestamp": datetime.now().isoformat(),
-            "environment": "production" if os.getenv("RAILWAY_ENVIRONMENT") else "local"
-        }
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn

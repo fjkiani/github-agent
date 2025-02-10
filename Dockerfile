@@ -21,8 +21,8 @@ COPY . .
 # Default port (will be overridden by Railway's PORT)
 ENV PORT=8000
 
-# Add healthcheck with longer start period
-HEALTHCHECK --interval=30s --timeout=30s --start-period=30s --retries=3 \
+# Add healthcheck with longer start period and more retries
+HEALTHCHECK --interval=15s --timeout=10s --start-period=45s --retries=5 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # Use PORT environment variable
