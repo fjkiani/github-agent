@@ -2,6 +2,9 @@ import asyncio
 import httpx
 import json
 from datetime import datetime
+import requests
+import time
+import sys
 
 async def test_github_agent():
     print("Starting GitHub Agent endpoint tests...")
@@ -71,9 +74,25 @@ async def test_github_agent():
             print("\nWaiting 2 seconds before next request...")
             await asyncio.sleep(2)
 
+def test_health():
+    """Test the health endpoint"""
+    response = requests.get("http://localhost:8000/health")
+    assert response.status_code == 200
+    assert response.json()["status"] == "healthy"
+
+def main():
+    print("Starting health check tests...")
+    try:
+        test_health()
+        print("✅ Health check passed!")
+    except Exception as e:
+        print(f"❌ Test failed: {str(e)}")
+        sys.exit(1)
+
 if __name__ == "__main__":
     print("Checking if server is running...")
     print("Starting tests in 3 seconds...")
     asyncio.run(asyncio.sleep(3))
     
     asyncio.run(test_github_agent())
+    main()
