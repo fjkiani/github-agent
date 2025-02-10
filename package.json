@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test:docker": "jest tests/docker.test.js"
+  }
+} 
