@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
@@ -17,5 +17,5 @@ COPY . .
 # Expose the port the app runs on
 EXPOSE 8001
 
-# Command to run the application
-CMD ["python", "github_agent_endpoint.py"]
+# Use PORT environment variable from Railway
+CMD uvicorn github_agent_endpoint:app --host 0.0.0.0 --port ${PORT:-8000}
