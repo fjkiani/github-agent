@@ -12,7 +12,7 @@ import os
 from datetime import datetime
 import time
 import asyncio
-import logging
+import logfire
 
 from pydantic_ai.messages import (
     ModelRequest,
@@ -21,16 +21,28 @@ from pydantic_ai.messages import (
     TextPart
 )
 
+from github_deps import GitHubDeps
+from github_agent import github_agent
+from pydantic_ai.models.openai import OpenAIModel
+
 # Add parent directory to Python path
 sys.path.append(str(Path(__file__).parent.parent))
 
-from github_agent import github_agent, GitHubDeps, OpenAIModel
+# Load and verify environment variables
+load_dotenv()
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
 
-# Initialize FastAPI app first
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Missing Supabase configuration. Check .env file.")
+
+print(f"Initializing with Supabase URL: {SUPABASE_URL}")
+print(f"Service key starts with: {SUPABASE_KEY[:20]}...")
+
+# Initialize FastAPI app
 app = FastAPI()
 security = HTTPBearer()
 
-# Add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,32 +51,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Initialize Supabase client
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# Global variable for Supabase client
-supabase = None
-
-@app.on_event("startup")
-async def startup_event():
-    global supabase
-    try:
-        # Load and verify environment variables
-        load_dotenv()
-        SUPABASE_URL = os.getenv("SUPABASE_URL")
-        SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-
-        if not SUPABASE_URL or not SUPABASE_KEY:
-            logger.warning("Missing Supabase configuration - will retry in health checks")
-            return
-
-        logger.info(f"Initializing Supabase with URL: {SUPABASE_URL[:20]}...")
-        supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-        logger.info("Supabase client initialized successfully")
-    except Exception as e:
-        logger.error(f"Error during startup: {str(e)}")
-        # Don't raise the error, let the application start anyway
+# Configure logfire to suppress warnings
+logfire.configure(send_to_logfire='never')
 
 # Request/Response Models
 class AgentRequest(BaseModel):
@@ -75,6 +66,10 @@ class AgentRequest(BaseModel):
 
 class AgentResponse(BaseModel):
     success: bool
+    response: Optional[str] = None
+    error: Optional[str] = None
+    error_type: Optional[str] = None
+    elapsed_time: Optional[float] = None
 
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)) -> bool:
     """Verify the bearer token against environment variable."""
@@ -161,85 +156,39 @@ async def github_agent_endpoint(request: AgentRequest):
         async with httpx.AsyncClient() as client:
             deps = GitHubDeps(
                 client=client,
-                github_token=os.getenv("GITHUB_TOKEN")
+                github_token=os.getenv('GITHUB_TOKEN'),  # Direct token usage like CLI
+                model=github_agent.model
             )
 
-            # Run the agent with timeout and retry handling
-            max_retries = 3
-            retry_delay = 2
-            for attempt in range(max_retries):
-                try:
-                    print(f"\nAttempt {attempt + 1} of {max_retries}...")
-                    result = await asyncio.wait_for(
-                        github_agent.run(
-                            request.query,
-                            message_history=messages,
-                            deps=deps
-                        ),
-                        timeout=45.0  # 45 second timeout
-                    )
-                    break  # If successful, break the retry loop
-                except asyncio.TimeoutError:
-                    if attempt == max_retries - 1:  # Last attempt
-                        raise HTTPException(status_code=504, detail="Request timed out")
-                    print(f"Timeout on attempt {attempt + 1}, retrying...")
-                    await asyncio.sleep(retry_delay)
-                except Exception as e:
-                    if "empty model response" in str(e).lower():
-                        if attempt == max_retries - 1:  # Last attempt
-                            # Try one last time with GPT-3.5-turbo
-                            print("\nRetrying with GPT-3.5-turbo...")
-                            deps.model = OpenAIModel(
-                                "openai/gpt-3.5-turbo",
-                                base_url='https://openrouter.ai/api/v1',
-                                api_key=os.getenv('OPEN_ROUTER_API_KEY')
-                            )
-                            result = await github_agent.run(
-                                request.query,
-                                message_history=messages,
-                                deps=deps
-                            )
-                        else:
-                            print(f"Empty response on attempt {attempt + 1}, retrying...")
-                            await asyncio.sleep(retry_delay)
-                            continue
-                    else:
-                        raise
-
-        print(f"Agent response received after {time.time() - start_time:.2f} seconds")
-        print(f"Response: {result.data[:200]}...")
-
-        # Store agent's response
-        print("\nStoring agent response...")
-        await store_message(
-            session_id=request.session_id,
-            message_type="ai",
-            content=result.data,
-            data={"request_id": request.request_id}
-        )
-
-        elapsed = time.time() - start_time
-        print(f"\nRequest completed successfully in {elapsed:.2f} seconds")
-        return AgentResponse(success=True)
+            try:
+                print("\nRunning GitHub agent...")
+                result = await github_agent.run(
+                    request.query,
+                    message_history=messages,
+                    deps=deps
+                )
+                response_text = result.data if hasattr(result, 'data') else str(result)
+                print(f"Success! Response: {response_text[:200]}...")
+                return {
+                    "success": True,
+                    "response": response_text,
+                    "elapsed_time": time.time() - start_time
+                }
+            except Exception as e:
+                print(f"\nError running agent: {str(e)}")
+                print(f"Error type: {type(e)}")
+                return {
+                    "success": False,
+                    "error": str(e),
+                    "error_type": str(type(e))
+                }
 
     except Exception as e:
-        elapsed = time.time() - start_time
-        print(f"\nError after {elapsed:.2f} seconds:")
-        print(f"Error type: {type(e)}")
-        print(f"Error message: {str(e)}")
-        if hasattr(e, '__traceback__'):
-            import traceback
-            print("Traceback:")
-            traceback.print_tb(e.__traceback__)
-        
-        # Store error message
-        await store_message(
-            session_id=request.session_id,
-            message_type="ai",
-            content="I apologize, but I encountered an error processing your request.",
-            data={"error": str(e), "request_id": request.request_id}
-        )
-        return AgentResponse(success=False)
+        print(f"Error in endpoint: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        }
 
 @app.get("/")
 async def health_check():
@@ -264,25 +213,7 @@ async def api_health():
 
 @app.get("/health")
 async def health_check():
-    logger.info("Health check called")
-    try:
-        if supabase:
-            # Light database check
-            response = supabase.table("messages").select("count").limit(1).execute()
-            return {
-                "status": "healthy",
-                "database": "connected",
-                "timestamp": datetime.now().isoformat()
-            }
-        return {
-            "status": "healthy",
-            "database": "not_configured",
-            "timestamp": datetime.now().isoformat()
-        }
-    except Exception as e:
-        logger.error(f"Health check error: {str(e)}")
-        # Still return healthy to pass initial deployment
-        return {"status": "healthy"}
+    return {"status": "healthy"}
 
 if __name__ == "__main__":
     import uvicorn

@@ -1,25 +1,39 @@
 from __future__ import annotations as _annotations
 import os
-from dataclasses import dataclass
 import re
-import httpx
 from dotenv import load_dotenv
 from pydantic_ai import Agent, RunContext
 from pydantic_ai.models.openai import OpenAIModel
+from github_deps import GitHubDeps
+from functools import lru_cache
+from typing import Dict, Any
 
 load_dotenv()
 
-# Use a simpler model configuration
-model = OpenAIModel(
-    'gpt-3.5-turbo',  # Use direct OpenAI model name
-    api_key=os.getenv('OPEN_ROUTER_API_KEY'),
-    base_url='https://openrouter.ai/api/v1'
-)
+# Initialize model based on available API keys
+if os.getenv('OPENAI_API_KEY'):  # Try OpenAI first
+    print("\nUsing OpenAI API")
+    api_key = os.getenv('OPENAI_API_KEY')
+    print(f"- API Key starts with: {api_key[:8]}...")
+    print(f"- API Key length: {len(api_key)}")
+    
+    model = OpenAIModel(
+        'gpt-3.5-turbo',
+        api_key=api_key,
+        base_url='https://api.openai.com/v1'  # Explicitly set OpenAI's API URL
+    )
+    
+    # Verify the configuration
+    print("\nVerifying OpenAI configuration:")
+    print(f"- Base URL: {model.client.base_url}")
+    print(f"- Headers: {model.client.headers if hasattr(model.client, 'headers') else 'No headers'}")
+else:
+    raise ValueError("No OpenAI API key found. Set OPENAI_API_KEY in your .env file")
 
-@dataclass
-class GitHubDeps:
-    client: httpx.AsyncClient
-    github_token: str | None = None
+# Test the model configuration
+print("\nTesting model configuration:")
+print(f"- Model base URL: {model.client.base_url}")
+print(f"- Model name: gpt-3.5-turbo")
 
 # Simplified system prompt
 system_prompt = """You are a GitHub repository assistant. Use these tools:
@@ -27,6 +41,9 @@ system_prompt = """You are a GitHub repository assistant. Use these tools:
 2. get_repo_structure - Get directory structure
 3. get_file_content - Read files
 4. get_directory_contents - List directory contents
+
+If a tool returns an error, do not retry the same tool multiple times.
+Instead, acknowledge the error and offer alternative ways to help.
 
 Always start responses with [Using https://github.com/...] and list which tools you're using.
 
@@ -42,35 +59,33 @@ github_agent = Agent(
     deps_type=GitHubDeps
 )
 
+# Cache for GitHub API responses and errors
+repo_cache: Dict[str, Any] = {}
+error_cache: Dict[str, str] = {}
+
 @github_agent.tool
 async def get_repo_info(ctx: RunContext[GitHubDeps], github_url: str) -> str:
-    """Get repository information including size and description using GitHub API.
-
-    Args:
-        ctx: The context.
-        github_url: The GitHub repository URL.
-
-    Returns:
-        str: Repository information as a formatted string.
-    """
+    """Get repository information using GitHub API."""
+    print(f"\nGitHub API Debug:")
+    print(f"- URL: {github_url}")
+    
     match = re.search(r'github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?$', github_url)
     if not match:
         return "Invalid GitHub URL format"
     
     owner, repo = match.groups()
-    headers = {'Authorization': f'token {ctx.deps.github_token}'} if ctx.deps.github_token else {}
+    print(f"- Owner: {owner}")
+    print(f"- Repo: {repo}")
     
-    response = await ctx.deps.client.get(
-        f'https://api.github.com/repos/{owner}/{repo}',
-        headers=headers
-    )
+    data = await ctx.deps.get_repo_data(owner, repo)
+    if not data:
+        return (
+            "I'm unable to access the GitHub repository information at the moment. "
+            "This could be due to authentication issues or rate limiting. "
+            "You can try viewing the repository directly at: " + github_url
+        )
     
-    if response.status_code != 200:
-        return f"Failed to get repository info: {response.text}"
-    
-    data = response.json()
     size_mb = data['size'] / 1024
-    
     return (
         f"Repository: {data['full_name']}\n"
         f"Description: {data['description']}\n"
