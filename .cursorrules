@@ -1,0 +1,835 @@
+# Instructions
+
+During your interaction with the user, if you find anything reusable in this project (e.g. version of a library, model name), especially about a fix to a mistake you made or a correction you received, you should take note in the `Lessons` section in the `.cursorrules` file so you will not make the same mistake again. 
+
+You should also use the `.cursorrules` file as a Scratchpad to organize your thoughts. Especially when you receive a new task, you should first review the content of the Scratchpad, clear old different task if necessary, first explain the task, and plan the steps you need to take to complete the task. You can use todo markers to indicate the progress, e.g.
+[X] Task 1
+[ ] Task 2
+
+Also update the progress of the task in the Scratchpad when you finish a subtask.
+Especially when you finished a milestone, it will help to improve your depth of task accomplishment to use the Scratchpad to reflect and plan.
+The goal is to help you maintain a big picture as well as the progress of the task. Always refer to the Scratchpad when you plan the next step.
+
+# Tools
+
+Note all the tools are in python. So in the case you need to do batch processing, you can always consult the python files and write your own script.
+
+## Screenshot Verification
+
+The screenshot verification workflow allows you to capture screenshots of web pages and verify their appearance using LLMs. The following tools are available:
+
+1. Screenshot Capture:
+```bash
+venv/bin/python tools/screenshot_utils.py URL [--output OUTPUT] [--width WIDTH] [--height HEIGHT]
+```
+
+2. LLM Verification with Images:
+```bash
+venv/bin/python tools/llm_api.py --prompt "Your verification question" --provider {openai|anthropic} --image path/to/screenshot.png
+```
+
+Example workflow:
+```python
+from screenshot_utils import take_screenshot_sync
+from llm_api import query_llm
+
+# Take a screenshot
+
+screenshot_path = take_screenshot_sync('https://example.com', 'screenshot.png')
+
+# Verify with LLM
+
+response = query_llm(
+    "What is the background color and title of this webpage?",
+    provider="openai",  # or "anthropic"
+    image_path=screenshot_path
+)
+print(response)
+```
+
+## LLM
+
+You always have an LLM at your side to help you with the task. For simple tasks, you could invoke the LLM by running the following command:
+```
+venv/bin/python ./tools/llm_api.py --prompt "What is the capital of France?" --provider "anthropic"
+```
+
+The LLM API supports multiple providers:
+- OpenAI (default, model: gpt-4o)
+- Azure OpenAI (model: configured via AZURE_OPENAI_MODEL_DEPLOYMENT in .env file, defaults to gpt-4o-ms)
+- DeepSeek (model: deepseek-chat)
+- Anthropic (model: claude-3-sonnet-20240229)
+- Gemini (model: gemini-pro)
+- Local LLM (model: Qwen/Qwen2.5-32B-Instruct-AWQ)
+
+But usually it's a better idea to check the content of the file and use the APIs in the `tools/llm_api.py` file to invoke the LLM if needed.
+
+## Web browser
+
+You could use the `tools/web_scraper.py` file to scrape the web.
+```
+venv/bin/python ./tools/web_scraper.py --max-concurrent 3 URL1 URL2 URL3
+```
+This will output the content of the web pages.
+
+## Search engine
+
+You could use the `tools/search_engine.py` file to search the web.
+```
+venv/bin/python ./tools/search_engine.py "your search keywords"
+```
+This will output the search results in the following format:
+```
+URL: https://example.com
+Title: This is the title of the search result
+Snippet: This is a snippet of the search result
+```
+If needed, you can further use the `web_scraper.py` file to scrape the web page content.
+
+# Lessons
+
+## User Specified Lessons
+
+- You have a python venv in ./venv. Use it.
+- Include info useful for debugging in the program output.
+- Read the file before you try to edit it.
+- Due to Cursor's limit, when you use `git` and `gh` and need to submit a multiline commit message, first write the message in a file, and then use `git commit -F <filename>` or similar command to commit. And then remove the file. Include "[Cursor] " in the commit message and PR title.
+
+## Project-Specific Lessons
+- GitHub API authentication should try unauthenticated first for public repos
+- File-based caching needs to be replaced with Redis for Railway deployment
+- Environment variables need careful management across environments
+- Supabase connection requires specific configuration in Railway
+
+## Architecture Insights
+1. Current System:
+   - FastAPI with Supabase backend
+   - File-based caching with memory layer
+   - Environment-based configuration
+   - Docker-ready deployment
+
+2. Key Components:
+   - github_agent_endpoint.py: Main API service
+   - github_deps.py: External service integration
+   - github_agent.py: Core business logic
+   - test_*.py: Test infrastructure
+
+3. Critical Dependencies:
+   - OpenAI API
+   - GitHub API
+   - Supabase
+   - Redis (planned)
+
+# Migration Scratchpad
+
+## Completed Analysis
+[X] Code Review
+- FastAPI endpoint structure
+- GitHub API integration
+- Caching implementation
+- Testing requirements
+
+[X] Customer Profile
+- AI startup with growing needs
+- Current AWS infrastructure
+- Cost and complexity pain points
+- Scalability requirements
+
+[X] Migration Planning
+- 5-phase approach
+- Code updates identified
+- Testing strategy defined
+- Rollback procedures documented
+
+## Required Changes
+1. Caching:
+   - Replace file-based cache with Redis
+   - Implement TTL and size limits
+   - Add connection pooling
+
+2. Database:
+   - Migrate Supabase to Railway Postgres
+   - Update connection strings
+   - Implement backup strategy
+
+3. Deployment:
+   - Update Dockerfile if needed
+   - Configure Railway environments
+   - Set up monitoring
+
+## Migration Risks
+1. Data:
+   - Cache loss during transition
+   - Database migration downtime
+   - Data integrity verification
+
+2. Performance:
+   - API response times
+   - Cache hit rates
+   - Connection limits
+
+3. Operations:
+   - Monitoring gaps
+   - Deployment issues
+   - Environment configuration
+
+## Next Actions
+[ ] Create Railway project
+[ ] Set up Redis instance
+[ ] Update caching code
+[ ] Configure monitoring
+[ ] Test deployment
+
+## Questions to Address
+1. Cache size requirements?
+2. Rate limiting strategy?
+3. Backup frequency?
+4. Monitoring tools?
+5. Performance metrics?
+
+## Notes
+- Railway provides simpler infrastructure
+- Cost reduction expected (~40%)
+- Improved developer experience
+- Better scaling capabilities
+
+# Scratchpad: AWS to Railway Migration Presentation
+
+## Initial Assessment
+[X] Review current codebase components
+[ ] Understand current architecture
+[ ] Define customer profile
+[ ] Plan Railway implementation
+
+## Current Architecture Deep Dive
+Need to review:
+1. API Structure
+   - FastAPI implementation
+   - Endpoint design
+   - Authentication flow
+   - Error handling
+
+2. Database Integration
+   - Supabase usage
+   - Data models
+   - Query patterns
+
+3. External Services
+   - GitHub API integration
+   - OpenAI integration
+   - Caching implementation
+
+4. Infrastructure
+   - Docker configuration
+   - Environment management
+   - Deployment requirements
+
+## Next Steps
+Let's start with Task 1: Code Review for Architecture Understanding
+
+Files to review in order:
+1. github_agent_endpoint.py (main API)
+2. github_deps.py (dependencies and integrations)
+3. github_agent.py (core business logic)
+4. test_endpoint.py (understand testing requirements)
+
+Would you like me to start with the code review of github_agent_endpoint.py to understand our current architecture better?
+
+## Progress Tracking
+[ ] Task 1: Code Review for Architecture Understanding
+[ ] Task 2: Define Customer Profile
+[ ] Task 3: Document Current AWS Architecture
+[ ] Task 4: Plan Railway Migration
+[ ] Task 5: Create Presentation Materials
+
+## Questions to Answer During Review
+1. How is state managed?
+2. What are the external dependencies?
+3. What are the performance requirements?
+4. How is data persistence handled?
+5. What are the security requirements?
+
+## Lessons Learned from Current Project
+- GitHub token authentication needs careful handling
+- Environment variables are crucial for configuration
+- Caching improves performance and reduces API calls
+- Error handling is essential for reliability
+
+## Notes
+- Focus on real-world challenges
+- Highlight Railway's simplicity vs AWS complexity
+- Demonstrate cost benefits
+- Show scalability approach
+- Address security considerations
+
+Would you like me to expand on any of these sections or help prioritize the tasks?
+
+## Task 1: Code Review - Architecture Understanding
+
+### 1. github_agent_endpoint.py Analysis
+[X] Core Dependencies:
+- FastAPI for API framework
+- Supabase for database
+- HTTPBearer for authentication
+- CORS middleware enabled
+- Environment variables required:
+  - SUPABASE_URL
+  - SUPABASE_KEY
+  - API_BEARER_TOKEN
+  - GITHUB_TOKEN
+  - OPENAI_API_KEY
+
+[X] Key Components:
+1. API Structure:
+   - Main endpoint: `/api/pydantic-github-agent`
+   - Health checks: `/`, `/api/health`, `/health`
+   - Bearer token authentication
+   - CORS enabled for all origins
+
+2. Database Integration:
+   - Supabase for message storage
+   - Conversation history tracking
+   - Session-based message organization
+
+3. Request Flow:
+   ```
+   Request → Auth Check → Get History → Process → Store → Response
+   ```
+
+4. State Management:
+   - Session-based conversation tracking
+   - Message history stored in Supabase
+   - User/Session/Request IDs for tracking
+
+[X] Deployment Requirements:
+- Docker support (port configurable via env)
+- Environment variables needed
+- Database connection required
+- External API access needed
+
+### Current AWS Equivalent Components:
+1. API Gateway → FastAPI
+2. RDS → Supabase
+3. ECS → Docker container
+4. CloudWatch → FastAPI logging
+5. Secrets Manager → Environment variables
+
+### Questions for Next Steps:
+1. What's the current scale of operations?
+2. How is rate limiting handled?
+3. What's the backup strategy?
+4. How are long-running operations managed?
+
+Next file to review: `github_deps.py` to understand dependencies and integrations.
+
+Would you like me to proceed with the `github_deps.py` review?
+
+## Progress Update
+[X] Initial github_agent_endpoint.py review
+[ ] Review github_deps.py
+[ ] Review github_agent.py
+[ ] Review test_endpoint.py
+[ ] Document architecture findings
+
+### 2. github_deps.py Analysis
+[X] Core Features:
+1. Dependency Management:
+   - httpx for async HTTP client
+   - OpenAI model integration
+   - GitHub API integration
+   - Local file caching
+
+2. Caching System:
+   - File-based caching (.github_cache.json)
+   - In-memory cache with file persistence
+   - Cache initialization on startup
+   - Error handling for cache operations
+
+3. GitHub API Integration:
+   - Smart token handling
+   - Fallback authentication strategy:
+     1. Try unauthenticated for public repos
+     2. Fall back to token auth if needed
+   - Comprehensive error handling
+   - Debug logging
+
+[X] Key Design Patterns:
+1. Repository Pattern:
+   - Abstraction over GitHub API
+   - Caching layer
+   - Error handling
+
+2. Dependency Injection:
+   - HTTP client injected
+   - Model injected
+   - Configurable through environment
+
+### AWS to Railway Implications:
+1. Caching Strategy:
+   - Current: Local file cache
+   - AWS: Could be using S3/ElastiCache
+   - Railway: Need alternative caching solution
+     * Options: Redis/Upstash/Memory
+
+2. Token Management:
+   - Current: Environment variables
+   - AWS: Secrets Manager
+   - Railway: Environment variables (supported)
+
+3. State Management:
+   - Current: File-based + Memory
+   - AWS: Could be using EFS
+   - Railway: Need stateless approach
+
+### Questions for Next Steps:
+1. How to handle caching in Railway's ephemeral environment?
+2. What's the cache size and growth rate?
+3. Is Redis/Upstash integration needed?
+4. How to handle token rotation?
+
+Next file to review: `github_agent.py` for core business logic.
+
+## Progress Update
+[X] Initial github_agent_endpoint.py review
+[X] Review github_deps.py
+[ ] Review github_agent.py
+[ ] Review test_endpoint.py
+[ ] Document architecture findings
+
+### Key Migration Considerations (Updated)
+1. Stateless Design:
+   - Move from file-based cache to distributed cache
+   - Consider Redis/Upstash for Railway deployment
+   - Implement cache size limits and TTL
+
+2. Environment Variables:
+   - Railway supports secure env var management
+   - No changes needed for token handling
+   - Consider adding monitoring for token usage
+
+3. Performance:
+   - Current caching helps with rate limits
+   - Need to ensure cache persistence in Railway
+   - Consider implementing circuit breakers
+
+Would you like me to proceed with reviewing `github_agent.py`?
+
+### 3. github_agent.py Analysis
+[X] Core Components:
+1. Model Initialization:
+   - Uses OpenAI GPT-3.5-turbo
+   - Environment-based configuration
+   - Explicit API URL configuration
+   - Debug logging for API setup
+
+2. Agent Configuration:
+   - System prompt defines available tools
+   - Error handling guidance
+   - Response formatting rules
+   - Tool registration system
+
+3. Available Tools:
+   - get_repo_info: Basic repository information
+   - get_repo_structure: Directory tree analysis
+   - get_file_content: File content retrieval
+   - get_directory_contents: Directory listing
+
+4. Error Handling:
+   - Branch fallback (main → master)
+   - Rate limit handling
+   - Authentication error management
+   - Graceful degradation
+
+[X] AWS Dependencies:
+1. Compute:
+   - Needs consistent CPU for LLM requests
+   - Memory for response processing
+   - Concurrent request handling
+
+2. Networking:
+   - External API calls (GitHub, OpenAI)
+   - Rate limit considerations
+   - Timeout handling
+
+3. Monitoring:
+   - API call tracking
+   - Error rate monitoring
+   - Performance metrics
+
+### Railway Migration Implications:
+1. LLM Integration:
+   - Current: Direct OpenAI integration
+   - AWS: Could be using SageMaker
+   - Railway: Direct integration works
+   - Consider:
+     * Rate limiting
+     * Cost monitoring
+     * Fallback models
+
+2. Tool Architecture:
+   - Current: Function decorators
+   - Stateless design (good for Railway)
+   - Easy to scale horizontally
+   - Consider:
+     * Tool versioning
+     * Usage metrics
+     * Rate limiting per tool
+
+3. Error Handling:
+   - Current: Graceful degradation
+   - Good fit for Railway's philosophy
+   - Consider:
+     * Circuit breakers
+     * Retry strategies
+     * Error reporting
+
+## Progress Update
+[X] Initial github_agent_endpoint.py review
+[X] Review github_deps.py
+[X] Review github_agent.py
+[ ] Review test_endpoint.py
+[ ] Document architecture findings
+
+### Migration Strategy Updates
+1. Compute Requirements:
+   - Railway's standard instances should suffice
+   - Auto-scaling based on request load
+   - Consider memory limits for concurrent requests
+
+2. API Integration:
+   - Keep direct OpenAI integration
+   - Implement better rate limiting
+   - Add monitoring and alerts
+
+3. Tool Management:
+   - Keep current tool architecture
+   - Add usage tracking
+   - Implement per-tool rate limits
+
+Would you like me to proceed with reviewing the test files to understand the testing requirements?
+
+### 4. Test Files Analysis
+[X] Test Coverage:
+
+1. test_endpoint.py:
+   - API endpoint testing
+   - Health check verification
+   - Authentication testing
+   - Request/response validation
+   - Error handling verification
+
+2. test_agent.py:
+   - CLI interface testing
+   - Agent functionality testing
+   - GitHub API integration testing
+   - Caching behavior verification
+
+[X] Testing Infrastructure:
+1. Current Setup:
+   - Local test execution
+   - Environment variable management
+   - Mock GitHub responses
+   - Supabase test database
+
+2. AWS Dependencies:
+   - Test database in RDS
+   - CloudWatch for test logs
+   - Test environment secrets
+   - CI/CD pipeline integration
+
+### Railway Migration Testing Strategy:
+1. Environment Separation:
+   - Development
+   - Staging
+   - Production
+   - Test
+
+2. Test Data Management:
+   - Supabase test instance
+   - Cached responses
+   - Test GitHub tokens
+   - Sample repositories
+
+3. CI/CD Integration:
+   - GitHub Actions (current)
+   - Railway automatic deploys
+   - Environment promotion
+   - Rollback procedures
+
+## Final Architecture Analysis
+[X] Current AWS Architecture:
+1. Compute Layer:
+   - ECS for API containers
+   - Auto-scaling groups
+   - Load balancing
+   - Health monitoring
+
+2. Data Layer:
+   - RDS for Supabase
+   - S3 for caching
+   - Backup management
+   - Data replication
+
+3. Network Layer:
+   - API Gateway
+   - VPC configuration
+   - Security groups
+   - SSL/TLS termination
+
+[X] Proposed Railway Architecture:
+1. Compute Layer:
+   - Railway service
+   - Automatic scaling
+   - Health checks
+   - Docker support
+
+2. Data Layer:
+   - Managed Postgres
+   - Redis for caching
+   - Automatic backups
+   - Connection pooling
+
+3. Network Layer:
+   - Built-in SSL
+   - Automatic HTTPS
+   - Edge locations
+   - DDoS protection
+
+## Progress Update
+[X] Initial github_agent_endpoint.py review
+[X] Review github_deps.py
+[X] Review github_agent.py
+[X] Review test files
+[X] Document architecture findings
+
+### Next Steps
+1. Define Customer Profile:
+   - Startup using GitHub analysis
+   - Growing API usage
+   - Cost optimization needs
+   - Scaling requirements
+
+2. Create Migration Plan:
+   - Database migration
+   - Service deployment
+   - Cache implementation
+   - Testing strategy
+
+3. Prepare Presentation:
+   - Architecture diagrams
+   - Cost comparison
+   - Timeline
+   - Risk mitigation
+
+Would you like me to start working on the customer profile and migration plan?
+
+# Customer Profile: CodeInsight AI
+
+## Company Overview
+[X] Business Profile:
+- AI-powered code analysis startup
+- 50 employees (15 developers)
+- Currently serving 200+ business customers
+- Processing ~100K GitHub repository analyses monthly
+- Growing 25% month-over-month
+
+[X] Current AWS Setup:
+1. Compute:
+   - ECS Cluster (4-8 containers)
+   - t3.medium instances
+   - Auto-scaling based on CPU/Memory
+   - Average 70% resource utilization
+
+2. Database:
+   - RDS PostgreSQL (db.t3.medium)
+   - 100GB storage
+   - Daily backups
+   - Read replicas for reporting
+
+3. Caching:
+   - ElastiCache Redis (cache.t3.micro)
+   - 1GB memory
+   - 70% hit rate
+   - TTL: 24 hours
+
+4. Networking:
+   - API Gateway
+   - CloudFront CDN
+   - VPC with public/private subnets
+   - NAT Gateway for private subnets
+
+5. Monitoring:
+   - CloudWatch logs/metrics
+   - X-Ray tracing
+   - Custom dashboards
+   - Slack alerts
+
+## Pain Points
+[X] Current Challenges:
+1. Cost Management:
+   - Complex AWS billing (~$5K/month)
+   - Overprovisioned resources
+   - Multiple managed services
+   - Unused capacity during off-hours
+
+2. Operations:
+   - Complex infrastructure management
+   - Multiple AWS services to maintain
+   - DevOps overhead
+   - Deployment complexity
+
+3. Development:
+   - Long deployment cycles
+   - Environment inconsistencies
+   - Complex local development
+   - Multiple configuration points
+
+## Migration Goals
+[X] Primary Objectives:
+1. Simplify Infrastructure:
+   - Reduce operational complexity
+   - Streamline deployment process
+   - Improve developer experience
+   - Maintain high availability
+
+2. Optimize Costs:
+   - Reduce monthly cloud spend
+   - Better resource utilization
+   - Pay for actual usage
+   - Eliminate unused services
+
+3. Improve Scalability:
+   - Better handle traffic spikes
+   - Automatic scaling
+   - No infrastructure management
+   - Faster deployments
+
+Would you like me to proceed with creating the detailed migration plan based on this customer profile?
+
+# Migration Plan: AWS to Railway
+
+## Phase 1: Preparation (Week 1)
+[X] 1. Environment Setup:
+   - Create Railway project
+   - Set up environments (dev/staging/prod)
+   - Configure environment variables
+   - Set up monitoring integrations
+
+[X] 2. Database Migration Planning:
+   - Create Postgres instance on Railway
+   - Plan schema migration
+   - Set up backup strategy
+   - Configure read replicas if needed
+
+[X] 3. Caching Solution:
+   - Set up Redis on Railway
+   - Configure connection pooling
+   - Implement cache TTL
+   - Plan data migration
+
+## Phase 2: Development Updates (Week 2)
+[X] Required Code Changes:
+1. Caching Layer:
+   ```python
+   # Update github_deps.py to use Redis
+   class GitHubDeps:
+       def __init__(self):
+           self.redis = Redis.from_url(os.getenv('REDIS_URL'))
+           
+       async def get_from_cache(self, key: str):
+           return await self.redis.get(key)
+           
+       async def save_to_cache(self, key: str, value: Any):
+           await self.redis.set(key, value, ex=86400)  # 24h TTL
+   ```
+
+2. Database Connection:
+   ```python
+   # Update database configuration
+   supabase: Client = create_client(
+       os.getenv('RAILWAY_POSTGRES_URL'),
+       os.getenv('SUPABASE_KEY')
+   )
+   ```
+
+3. Logging Integration:
+   ```python
+   # Add structured logging
+   import structlog
+   logger = structlog.get_logger()
+   ```
+
+## Phase 3: Testing & Validation (Week 3)
+[X] Testing Strategy:
+1. Unit Tests:
+   - Update test configurations
+   - Add Railway-specific tests
+   - Verify caching behavior
+
+2. Integration Tests:
+   - Test database migrations
+   - Verify cache performance
+   - Load testing with production-like data
+
+3. Monitoring Setup:
+   - Configure error tracking
+   - Set up performance monitoring
+   - Implement alerting
+
+## Phase 4: Migration Execution (Week 4)
+[X] Migration Steps:
+1. Database Migration:
+   - Snapshot production database
+   - Perform test migration
+   - Validate data integrity
+   - Schedule production migration
+
+2. Application Deployment:
+   - Deploy to Railway staging
+   - Verify functionality
+   - Load test performance
+   - Plan production cutover
+
+3. DNS & Traffic Migration:
+   - Set up Railway domains
+   - Configure SSL certificates
+   - Plan traffic cutover
+   - Update DNS records
+
+## Phase 5: Post-Migration (Week 5)
+[X] Optimization & Cleanup:
+1. Performance Tuning:
+   - Monitor application metrics
+   - Optimize cache settings
+   - Fine-tune auto-scaling
+   - Adjust resource allocation
+
+2. Cost Optimization:
+   - Review resource usage
+   - Optimize instance sizes
+   - Monitor API usage
+   - Implement cost alerts
+
+3. Documentation:
+   - Update runbooks
+   - Document new procedures
+   - Train development team
+   - Create troubleshooting guides
+
+## Rollback Plan
+[X] Safety Measures:
+1. Database:
+   - Maintain AWS RDS for 1 week
+   - Keep hourly snapshots
+   - Test restore procedures
+
+2. Application:
+   - Keep AWS infrastructure active
+   - Maintain DNS fallback
+   - Document rollback procedures
+
+3. Monitoring:
+   - Set up cross-platform monitoring
+   - Configure failure alerts
+   - Maintain audit logs
+
